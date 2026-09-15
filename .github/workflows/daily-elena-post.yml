@@ -1,0 +1,107 @@
+name: Daily Elena (Tarot card of the day, RU only)
+
+# Introduces /elena/ (the app's own practicing tarot reader) once a day
+# through a card of the day — Nick's ask, 2026-09-14: informational, not a
+# hard sell ("не продающие — а просто рассказывающие... аккуратно без
+# продажи со ссылкой на неё"), RU only ("только русский, хоть она по
+# английски говорит — но не надо"). v2, same day: rebuilt on the in-house
+# Rerih/Röhrig deck after TikTok removed the original Rider-Waite-Smith
+# version for a Community Guidelines violation (almost certainly the RWS
+# deck's adult nudity, not copyright). See generate-video-elena.mjs's own
+# header comment for the full reasoning.
+
+on:
+  schedule:
+    - cron: '40 18 * * *' # ~01:40 Bangkok (UTC+7) — secondary, often very late
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Generate today's Elena Tarot video
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/social/generate-video-elena.mjs
+
+      - name: Post to Instagram (RU → @bulejavan)
+        if: always()
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-instagram.mjs --suffix=elena
+
+      - name: Post to Facebook (RU → Bule Javan)
+        if: always()
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-facebook.mjs --suffix=elena
+
+      - name: Post to Telegram (RU → @nikolablajen_news, full article for Дзен)
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-telegram.mjs --suffix=elena
+
+      - name: Post to VK (RU → community)
+        if: always()
+        env:
+          VK_ACCESS_TOKEN: ${{ secrets.VK_ACCESS_TOKEN }}
+          VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-vk.mjs --suffix=elena
+
+      - name: Post to YouTube (RU → Shorts)
+        if: always()
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-youtube.mjs --locale=ru --suffix=elena
+
+      - name: Post to Threads (RU → @bulejavan, brand only)
+        if: always()
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-threads.mjs --locale=ru --suffix=elena
+
+      - name: Post to TikTok (RU → draft in @nikola.blajen's inbox)
+        if: always()
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs --locale=ru --suffix=elena
+
+      - name: Upload video as artifact (debugging aid)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-elena-video
+          path: |
+            dist-social/*-elena*.mp4
+            dist-social/*-elena*.txt
+            dist-social/*-elena*.json
+          retention-days: 7

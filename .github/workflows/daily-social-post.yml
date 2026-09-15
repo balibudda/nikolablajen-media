@@ -1,0 +1,180 @@
+name: Daily card-of-the-day → Instagram Reels (RU + EN)
+
+on:
+  schedule:
+    - cron: '13 18 * * *' # ~01:13 Bangkok (UTC+7) / ~21:13 MSK — ready by Russian morning
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Which language(s) to post
+        type: choice
+        default: both
+        options: [both, ru, en]
+
+# Never run two instances of this workflow at once — the push trigger above
+# can fire more than once in a morning (e.g. a merge commit or a later fix
+# to the same day's public/blog/den/<date>/ page each re-trigger it, as
+# happened 2026-09-01: three push-triggered runs the same day). Each run's
+# own posted-marker.mjs check-then-post has a small race window between
+# checking wasPosted() and calling markPosted() — harmless if runs are
+# minutes apart (as they were that day), but queuing overlapping runs
+# instead of letting them race removes the risk entirely rather than
+# relying on the timing gap.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Generate today's video (RU)
+        if: ${{ github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/social/generate-video.mjs --locale=ru
+
+      - name: Post to Instagram (RU → @bulejavan)
+        if: ${{ github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru' }}
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-instagram.mjs --locale=ru
+
+      - name: Post to Facebook (RU → Bule Javan)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-facebook.mjs --locale=ru
+
+      - name: Post to Telegram (RU → @nikolablajen_news)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-telegram.mjs
+
+      - name: Post to VK (RU → community)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          VK_ACCESS_TOKEN: ${{ secrets.VK_ACCESS_TOKEN }}
+          VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-vk.mjs
+
+      - name: Post to YouTube (RU → Shorts)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-youtube.mjs
+
+      - name: Post to Threads (RU → @bulejavan)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-threads.mjs --locale=ru
+
+      - name: Post to TikTok (RU → draft in @nikola.blajen's inbox)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs
+
+      - name: Generate today's video (EN)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/social/generate-video.mjs --locale=en
+
+      - name: Post to Instagram (EN → @nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN_EN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: node scripts/social/post-instagram.mjs --locale=en
+
+      - name: Post to Facebook (EN → nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID_EN }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-facebook.mjs --locale=en
+
+      - name: Post to Bluesky (EN)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: node scripts/social/post-bluesky.mjs --suffix=en
+
+      - name: Post to Tumblr (EN)
+        continue-on-error: true
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
+          TUMBLR_CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_SECRET }}
+          TUMBLR_REFRESH_TOKEN: ${{ secrets.TUMBLR_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+        run: node scripts/social/post-tumblr.mjs --suffix=en
+
+      - name: Post to YouTube (EN → Shorts)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-youtube.mjs --locale=en
+
+      - name: Post to Threads (EN → @nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN_EN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-threads.mjs --locale=en
+
+      - name: Post to TikTok (EN → draft in @nikola.blajen7's inbox)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_EN: ${{ secrets.TIKTOK_REFRESH_TOKEN_EN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs --locale=en
+
+      - name: Upload video as artifact (debugging aid)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-social-video
+          path: |
+            dist-social/*.mp4
+            dist-social/*.txt
+            dist-social/*.json
+          retention-days: 7

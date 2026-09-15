@@ -1,0 +1,183 @@
+name: Daily "Выбери карту" / Pick a card (RU + EN, all channels)
+
+# A second, additional daily video — separate from the main "card of the
+# day" (daily-social-post.yml) and the Tarot stream (daily-tarot-post.yml).
+# Three cards from the same 3-deck pool, revealed one by one, viewer picks
+# a number before the reveal. Nick's ask, 2026-09-01: "как еще одна доп
+# карта на все каналы рус и анг версию. В тг тоже! везде куда можно пости.
+# раз в день и запускай." — full channel parity with the main daily card,
+# Telegram included for RU (VK/Telegram stay RU-only, same as everywhere
+# else in this repo).
+
+on:
+  schedule:
+    - cron: '53 18 * * *' # ~01:53 Bangkok (UTC+7) — secondary, often very late
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Which language(s) to post
+        type: choice
+        default: both
+        options: [both, ru, en]
+
+# Prevents two overlapping runs (an accidental re-trigger, an overlapping
+# schedule) from racing on the same day's posted-marker.mjs check —
+# see daily-social-post.yml's concurrency block for the full story.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Generate today's "pick a card" video (RU)
+        if: ${{ github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/social/generate-video-pickcard.mjs --locale=ru
+
+      - name: Post to Instagram (RU → @bulejavan)
+        if: ${{ github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru' }}
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-instagram.mjs --suffix=pickcard-ru
+
+      - name: Post to Facebook (RU → Bule Javan)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-facebook.mjs --suffix=pickcard-ru
+
+      - name: Post to Telegram (RU → @nikolablajen_news)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-telegram.mjs --suffix=pickcard-ru
+
+      - name: Post to VK (RU → community)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          VK_ACCESS_TOKEN: ${{ secrets.VK_ACCESS_TOKEN }}
+          VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-vk.mjs --suffix=pickcard-ru
+
+      - name: Post to YouTube (RU → Shorts)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-youtube.mjs --locale=ru --suffix=pickcard-ru
+
+      - name: Post to Threads (RU → @bulejavan)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-threads.mjs --locale=ru --suffix=pickcard-ru
+
+      - name: Post to TikTok (RU → draft in @nikola.blajen's inbox)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs --suffix=pickcard-ru
+
+      - name: Generate today's "pick a card" video (EN)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/social/generate-video-pickcard.mjs --locale=en
+
+      - name: Post to Instagram (EN → @nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN_EN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: node scripts/social/post-instagram.mjs --suffix=pickcard-en
+
+      - name: Post to Facebook (EN → nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID_EN }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-facebook.mjs --suffix=pickcard-en
+
+      - name: Post to Bluesky (EN)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: node scripts/social/post-bluesky.mjs --suffix=pickcard-en
+
+      - name: Post to Tumblr (EN)
+        continue-on-error: true
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
+          TUMBLR_CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_SECRET }}
+          TUMBLR_REFRESH_TOKEN: ${{ secrets.TUMBLR_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+        run: node scripts/social/post-tumblr.mjs --suffix=pickcard-en
+
+      - name: Post to YouTube (EN → Shorts)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-youtube.mjs --locale=en --suffix=pickcard-en
+
+      - name: Post to Threads (EN → @nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN_EN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-threads.mjs --locale=en --suffix=pickcard-en
+
+      - name: Post to TikTok (EN → draft in @nikola.blajen7's inbox)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_EN: ${{ secrets.TIKTOK_REFRESH_TOKEN_EN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs --locale=en --suffix=pickcard-en
+
+      - name: Upload video as artifact (debugging aid)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-pickcard-video
+          path: |
+            dist-social/*-pickcard-*.mp4
+            dist-social/*-pickcard-*.txt
+            dist-social/*-pickcard-*.json
+          retention-days: 7

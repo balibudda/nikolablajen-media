@@ -1,0 +1,189 @@
+name: "Расклад-послание (Tarot + Oracle hybrid)"
+
+# "Расклад-послание" — one Tarot (Rerih) card + one Oracle card in a single
+# video (BACKLOG.md "Building now", 2026-09-05, Studio's own pitch:
+# combining the two systems is unique to this channel).
+# scripts/social/generate-video-message-spread.mjs.
+#
+# LIVE weekly cron since 2026-09-05 (Nick: "давай раз в неделю", after a
+# manual test run confirmed the output, plus a same-day fix so the intro
+# frame shows both card thumbnails instead of a bare gradient). Both cards
+# re-draw fresh from today's date each run — no repeat risk week to week.
+
+on:
+  schedule:
+    - cron: '0 20 * * 3'  # weekly, Wednesday ~20:00 UTC (~03:00 Thu Bangkok)
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Which language(s) to post
+        type: choice
+        default: both
+        options: [both, ru, en]
+      cards:
+        description: 'Optional: reproduce exact pair, e.g. "rerih/15,golos/10" (leave blank to draw fresh)'
+        type: string
+        default: ''
+      date:
+        description: 'Optional: dateKey for filenames/captions, e.g. 2026-09-05 (leave blank for today)'
+        type: string
+        default: ''
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Generate message-spread video (RU)
+        if: ${{ github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/social/generate-video-message-spread.mjs --locale=ru ${{ github.event.inputs.cards != '' && format('--cards={0}', github.event.inputs.cards) || '' }} ${{ github.event.inputs.date != '' && format('--date={0}', github.event.inputs.date) || '' }}
+
+      - name: Post to Instagram (RU → @bulejavan)
+        if: ${{ github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru' }}
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-instagram.mjs --suffix=message-spread-ru
+
+      - name: Post to Facebook (RU → Bule Javan)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-facebook.mjs --suffix=message-spread-ru
+
+      - name: Post to Telegram (RU → @nikolablajen_news)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-telegram.mjs --suffix=message-spread-ru
+
+      - name: Post to VK (RU → community)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          VK_ACCESS_TOKEN: ${{ secrets.VK_ACCESS_TOKEN }}
+          VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-vk.mjs --suffix=message-spread-ru
+
+      - name: Post to YouTube (RU → Shorts)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-youtube.mjs --locale=ru --suffix=message-spread-ru
+
+      - name: Post to Threads (RU → @bulejavan)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-threads.mjs --locale=ru --suffix=message-spread-ru
+
+      - name: Post to TikTok (RU → draft in @nikola.blajen's inbox)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'ru') }}
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs --suffix=message-spread-ru
+
+      - name: Generate message-spread video (EN)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/social/generate-video-message-spread.mjs --locale=en ${{ github.event.inputs.cards != '' && format('--cards={0}', github.event.inputs.cards) || '' }} ${{ github.event.inputs.date != '' && format('--date={0}', github.event.inputs.date) || '' }}
+
+      - name: Post to Instagram (EN → @nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN_EN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: node scripts/social/post-instagram.mjs --suffix=message-spread-en
+
+      - name: Post to Facebook (EN → nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID_EN }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-facebook.mjs --suffix=message-spread-en
+
+      - name: Post to Bluesky (EN)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: node scripts/social/post-bluesky.mjs --suffix=message-spread-en
+
+      - name: Post to Tumblr (EN)
+        continue-on-error: true
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
+          TUMBLR_CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_SECRET }}
+          TUMBLR_REFRESH_TOKEN: ${{ secrets.TUMBLR_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+        run: node scripts/social/post-tumblr.mjs --suffix=message-spread-en
+
+      - name: Post to YouTube (EN → Shorts)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-youtube.mjs --locale=en --suffix=message-spread-en
+
+      - name: Post to Threads (EN → @nikolablajen.en)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN_EN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID_EN }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-threads.mjs --locale=en --suffix=message-spread-en
+
+      - name: Post to TikTok (EN → draft in @nikola.blajen7's inbox)
+        if: ${{ always() && (github.event.inputs.only == '' || github.event.inputs.only == 'both' || github.event.inputs.only == 'en') }}
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_EN: ${{ secrets.TIKTOK_REFRESH_TOKEN_EN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs --locale=en --suffix=message-spread-en
+
+      - name: Upload video as artifact (debugging aid)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: message-spread-video
+          path: |
+            dist-social/*-message-spread-*.mp4
+            dist-social/*-message-spread-*.txt
+            dist-social/*-message-spread-*.json
+          retention-days: 7

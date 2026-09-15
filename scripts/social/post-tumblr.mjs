@@ -37,7 +37,7 @@ const run = promisify(execFile)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
 const BLOG = process.env.TUMBLR_BLOG || 'nikolablajen'
-const REPO = 'balibudda/nikolablajen_app'
+const REPO = 'balibudda/nikolablajen-media'
 
 function getTodayKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`

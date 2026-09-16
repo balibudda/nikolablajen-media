@@ -419,7 +419,11 @@ function buildTelegramCaption({ monthKey, monthLabel, aiHoro = null, headline = 
   const header = `<b>${escHtml(title)}</b>`
   const intro = MONTHLY_TG_INTROS[hashStr(monthKey) % MONTHLY_TG_INTROS.length]
   const cta = '💬 Напиши свой знак в комментариях — откликнулось?'
-  const more = `📖 Полный прогноз на месяц для всех знаков — в приложении «Никола Блажен».`
+  // Real clickable link, not just a text mention (Nick, 2026-09-16: every
+  // TG post needs an active link so the Telegram→Дзен crosspost actually
+  // carries a way back to the site — this caption was missing one
+  // entirely before).
+  const more = `📖 Полный прогноз на месяц для всех знаков — <a href="https://nikolablajen.ru/">в приложении «Никола Блажен»</a>.`
   return [header, '', intro, '', cta, '', more, '', tags].join('\n')
 }
 

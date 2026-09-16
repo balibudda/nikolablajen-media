@@ -84,6 +84,24 @@ function buildThreadChunks(caption, link) {
   const chunks = []
   let current = ''
   const flush = () => { if (current) { chunks.push(current); current = '' } }
+  // Adds `piece` to the current chunk if it fits; otherwise flushes and, if
+  // piece alone still exceeds the limit (no punctuation to split on — e.g.
+  // one long clause with no . ! ?), hard-wraps it word by word as a last
+  // resort so a chunk can never exceed CHUNK_LIMIT (found live 2026-09-16:
+  // a 335-grapheme chunk reached Bluesky's API because the old
+  // sentence-split fallback assigned an oversized "sentence" to `current`
+  // unconditionally, with nothing after it to catch that case).
+  const addPiece = (piece) => {
+    const candidate = current ? `${current} ${piece}` : piece
+    if (graphemeLength(candidate) <= CHUNK_LIMIT) { current = candidate; return }
+    flush()
+    if (graphemeLength(piece) <= CHUNK_LIMIT) { current = piece; return }
+    for (const word of piece.split(/\s+/)) {
+      const cand2 = current ? `${current} ${word}` : word
+      if (graphemeLength(cand2) <= CHUNK_LIMIT) current = cand2
+      else { flush(); current = word }
+    }
+  }
   for (const para of paragraphs) {
     const candidate = current ? `${current}\n\n${para}` : para
     if (graphemeLength(candidate) <= CHUNK_LIMIT) {
@@ -96,12 +114,7 @@ function buildThreadChunks(caption, link) {
       continue
     }
     // paragraph itself is too long — split at sentence boundaries
-    const sentences = para.split(/(?<=[.!?])\s+/)
-    for (const s of sentences) {
-      const cand2 = current ? `${current} ${s}` : s
-      if (graphemeLength(cand2) <= CHUNK_LIMIT) current = cand2
-      else { flush(); current = s }
-    }
+    for (const s of para.split(/(?<=[.!?])\s+/)) addPiece(s)
   }
   flush()
   if (chunks.length === 0) chunks.push('')

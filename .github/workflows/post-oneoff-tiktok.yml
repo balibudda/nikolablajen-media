@@ -29,9 +29,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: npm install
-
       - name: Stage video into dist-social
         run: |
           mkdir -p dist-social

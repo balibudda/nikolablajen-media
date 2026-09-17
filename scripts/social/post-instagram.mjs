@@ -61,9 +61,18 @@ function sleep(ms) {
 // YOUTUBE_EN_DISABLED in post-youtube.mjs and THREADS_DISABLED in
 // post-threads.mjs — covers every pipeline that calls this script
 // (daily card, tarot, pickcard ×3, message-spread, monthly horoscope,
-// astro-event, section posts, custom broadcasts) in one place. RU
-// (@bulejavan) is untouched. Remove this flag to re-enable.
+// astro-event, section posts, custom broadcasts) in one place.
 const INSTAGRAM_EN_DISABLED = true
+// Instagram RU (@bulejavan) killed too, 2026-09-17 — Nick: "толку смотрю
+// нет, просмотров мало и это под подает под то что рекламироваться тут
+// нельзя. от греха подальше." Same near-zero-engagement diagnosis as EN
+// above, plus real legal caution around actively promoting on Meta
+// platforms for a RU audience. With this, Instagram is off entirely —
+// every pipeline that calls this script, both locales. Same fix applied
+// to the sister copy in nikolablajen-app (no auto-sync between the two
+// repos, see that repo's own CLAUDE.md note on this). Remove either flag
+// to re-enable that locale specifically.
+const INSTAGRAM_RU_DISABLED = true
 
 async function main() {
   const args = Object.fromEntries(
@@ -82,6 +91,10 @@ async function main() {
   const locale = args.locale === 'en' || (typeof args.suffix === 'string' && args.suffix.endsWith('-en')) ? 'en' : 'ru'
   if (INSTAGRAM_EN_DISABLED && locale === 'en') {
     console.log('Instagram EN (@nikolablajen.en) posting is disabled (Nick, 2026-09-14 — no views/no traffic) — skipping. Remove INSTAGRAM_EN_DISABLED in post-instagram.mjs to re-enable.')
+    return
+  }
+  if (INSTAGRAM_RU_DISABLED && locale === 'ru') {
+    console.log('Instagram RU (@bulejavan) posting is disabled (Nick, 2026-09-17 — no views/no traffic + legal caution) — skipping. Remove INSTAGRAM_RU_DISABLED in post-instagram.mjs to re-enable.')
     return
   }
   const suffix = args.suffix || locale

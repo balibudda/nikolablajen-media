@@ -1,0 +1,59 @@
+name: Post one-off video to TikTok (draft)
+
+# Reusable manual trigger for posting an already-committed, hand-made video
+# to TikTok's inbox as a draft — for cases like Nick's own animated clips
+# that didn't come out of one of the generate-video-*.mjs pipelines.
+# Commit the .mp4 (+ optional .tiktok.txt caption) under
+# scripts/social/one-off/, then dispatch this with matching inputs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_path:
+        description: Path to the committed .mp4
+        required: true
+      caption_path:
+        description: Path to the committed .tiktok.txt caption (optional)
+        default: ''
+      tag:
+        description: Unique dedupe tag (so re-runs don't skip as "already posted")
+        required: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Stage video into dist-social
+        run: |
+          mkdir -p dist-social
+          DATEKEY=$(date +%Y-%m-%d)
+          cp "${{ inputs.video_path }}" "dist-social/${DATEKEY}-oneoff.mp4"
+          if [ -n "${{ inputs.caption_path }}" ]; then
+            cp "${{ inputs.caption_path }}" "dist-social/${DATEKEY}-oneoff.tiktok.txt"
+          fi
+
+      - name: Post to TikTok (draft inbox)
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+          GH_ASSETS_TOKEN: ${{ secrets.GH_ASSETS_TOKEN }}
+        run: node scripts/social/post-tiktok.mjs --locale=ru --suffix=oneoff --tag=${{ inputs.tag }}
+
+      - name: Upload video as artifact (debugging aid)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oneoff-video
+          path: dist-social/*.mp4
+          retention-days: 3
